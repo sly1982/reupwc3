@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clavier 0–9 – Code 980 (Matrix Marrakech)</title>
+  <style>
+    :root{
+      --bg:#000;
+      --panel:#0a0a0acc; /* panneau semi-transparent */
+      --green:#16a34a;   /* vert "correct" */
+      --red:#ef4444;     /* rouge "erreur" */
+      /* Palette Marrakech (ocres/terracotta/verts) pour la pluie de lettres */
+      --m1:#d97706; /* ocre */
+      --m2:#b45309; /* terre cuite foncée */
+      --m3:#e11d48; /* rouge grenat */
+      --m4:#2dd4bf; /* vert d'eau */
+      --m5:#10b981; /* vert palmier */
+      --text:#f3f4f6;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      overflow:hidden; /* garde l'effet plein écran propre */
+      -webkit-tap-highlight-color: transparent;
+    }
+    canvas#matrix{position:fixed;inset:0;z-index:0;display:block;background:#000;}
+
+    /* Silhouette style "Assassin" en SVG centré, plus distincte */
+    .assassin{
+      position:fixed;inset:0;display:grid;place-items:center;z-index:1;pointer-events:none;
+      opacity:0.28; /* plus visible mais reste en fond */
+      filter: drop-shadow(0 10px 30px rgba(0,0,0,.6));
+    }
+    .assassin svg{width:min(50vmin,520px);height:auto;}
+
+    /* Panneau du cadran (clavier) */
+    .panel{
+      position:relative;z-index:2;display:grid;place-items:center;height:100%;
+      padding: clamp(12px, 2vmin, 24px);
+    }
+    .pad{
+      width:min(92vw,520px);
+      background:var(--panel);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
+      padding:clamp(14px,2.5vmin,22px);
+    }
+    .title{margin:0 0 10px;font-weight:600;letter-spacing:.2px;text-align:center;opacity:.95}
+    .entered{
+      display:flex;justify-content:center;gap:10px; margin:10px 0 18px;
+      font-size: clamp(18px, 5vmin, 26px);
+      letter-spacing:4px;
+    }
+    .entered span{min-width:1ch;text-align:center;border-bottom:2px solid rgba(255,255,255,.18);padding:2px 6px;border-radius:6px}
+
+    .grid{
+      display:grid;gap:12px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .key{
+      aspect-ratio:1/1;
+      display:grid;place-items:center;
+      font-size: clamp(20px, 6vmin, 34px);
+      font-weight:700;
+      border-radius:16px;
+      background: radial-gradient(120% 140% at 30% 20%, rgba(255,255,255,.12), rgba(255,255,255,.02) 60%, rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.12);
+      color:#e5e7eb;
+      box-shadow: 0 4px 10px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
+      user-select:none;cursor:pointer;transition: transform .06s ease, filter .2s ease;
+      touch-action: manipulation;
+    }
+    .key:active{ transform: scale(.96); filter: brightness(1.2); }
+
+    /* Range classique 1-9 + 0 centré en bas, comme un cadran numérique */
+    .row{display:contents}
+    .zero-wrapper{grid-column:2 / span 1}
+
+    /* Statut hors du cadran (en bas d'écran) */
+    .status{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      z-index:3;
+      font-size: clamp(18px, 6vmin, 32px);
+      font-weight:800;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45);
+      opacity:0; transition: opacity .25s ease, filter .25s ease;
+      filter: drop-shadow(0 4px 20px rgba(0,0,0,.35));
+    }
+    .status.show{opacity:1}
+    .status.ok{color:var(--green)}
+    .status.err{color:var(--red)}
+
+    /* Shake sur erreur */
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+    .shake{animation: shake .35s ease both}
+
+    /* Petits écrans */
+    @media (max-width:420px){
+      .pad{width:92vw}
+    }
+  </style>
+</head>
+<body>
+  <!-- Canvas effet Matrix en fond -->
+  <canvas id="matrix" aria-hidden="true"></canvas>
+
+  <!-- Silhouette "Assassin" (SVG libre stylisée) -->
+  <div class="assassin" aria-hidden="true">
+    <svg viewBox="0 0 512 512" role="img" aria-label="silhouette capuchon">
+      <path fill="currentColor" d="M256 24c-22 0-98 88-120 150-7 19-9 46-8 72 25-8 54-14 86-17-7-18-5-40 6-63 6-12 14-23 24-33 10 10 18 21 24 33 11 23 13 45 6 63 32 3 61 9 86 17 1-26-1-53-8-72C354 112 278 24 256 24zm-98 218c-42 13-72 31-87 50-23 29-31 72-21 111 38-26 86-45 143-57-16-22-27-52-35-104zm196 0c-8 52-19 82-35 104 57 12 105 31 143 57 10-39 2-82-21-111-15-19-45-37-87-50zM256 302c-21 0-40 13-54 34-12 18-20 39-25 62 49-8 102-8 158 0-5-23-13-44-25-62-14-21-33-34-54-34z"/>
+    </svg>
+  </div>
+
+  <!-- Cadran 0–9 -->
+  <main class="panel" aria-live="polite">
+    <section class="pad" aria-label="Cadran numérique 0 à 9">
+      <h1 class="title">Entrez le code secret</h1>
+      <div class="entered" id="entered" aria-label="code saisi">
+        <span id="d1">_</span><span id="d2">_</span><span id="d3">_</span>
+      </div>
+      <div class="grid" id="grid" role="group" aria-label="clavier numérique">
+        <button class="key" data-digit="1" aria-label="1">1</button>
+        <button class="key" data-digit="2" aria-label="2">2</button>
+        <button class="key" data-digit="3" aria-label="3">3</button>
+        <button class="key" data-digit="4" aria-label="4">4</button>
+        <button class="key" data-digit="5" aria-label="5">5</button>
+        <button class="key" data-digit="6" aria-label="6">6</button>
+        <button class="key" data-digit="7" aria-label="7">7</button>
+        <button class="key" data-digit="8" aria-label="8">8</button>
+        <button class="key" data-digit="9" aria-label="9">9</button>
+        <div class="row zero-wrapper">
+          <button class="key" data-digit="0" aria-label="0">0</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Message CORRECT / ERREUR en dehors du cadran, en bas d'écran -->
+  <div id="status" class="status" role="status" aria-live="assertive"></div>
+
+  <script>
+    /*\
+     * Effet Matrix "Marrakech" (pluie de glyphes plus lente)
+     * Inspiré de l'exemple classique, adapté pour une palette chaude et une vitesse réduite.
+     */
+    (function matrixEffect(){
+      const c = document.getElementById('matrix');
+      const ctx = c.getContext('2d');
+      let W, H, fontSize, columns, drops;
+      const glyphs = 'アカサタナハマヤラワ0123456789ABCDEFღ✧◇◆';
+      const palette = [getComputedStyle(document.documentElement).getPropertyValue('--m1').trim(),
+                       getComputedStyle(document.documentElement).getPropertyValue('--m2').trim(),
+                       getComputedStyle(document.documentElement).getPropertyValue('--m3').trim(),
+                       getComputedStyle(document.documentElement).getPropertyValue('--m4').trim(),
+                       getComputedStyle(document.documentElement).getPropertyValue('--m5').trim()];
+      function resize(){
+        W = c.width = window.innerWidth; H = c.height = window.innerHeight;
+        fontSize = Math.max(14, Math.floor(Math.min(W,H)/48)); // plus gros sur mobile
+        columns = Math.floor(W / fontSize);
+        drops = Array(columns).fill(0);
+      }
+      window.addEventListener('resize', resize, {passive:true});
+      resize();
+      let tick = 0;
+      function draw(){
+        // voile noir semi-transparent pour traînées
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(0,0,W,H);
+        ctx.font = fontSize + 'px monospace';
+        for(let i=0;i<columns;i++){
+          // couleurs chaudes en cycle lent
+          const color = palette[(i + Math.floor(tick/12)) % palette.length];
+          ctx.fillStyle = color;
+          const char = glyphs.charAt((i*7 + tick) % glyphs.length);
+          ctx.fillText(char, i*fontSize, drops[i]*fontSize);
+          // vitesse lente
+          if(drops[i]*fontSize > H && Math.random() > 0.975){ drops[i] = 0; }
+          else { drops[i] += 0.6; } // 0.6 => plus lent que 1+ (classique)
+        }
+        tick++;
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    /*\
+     * Logique clavier 0–9, code correct = "980".
+     * Affiche CORRECT (vert) ou ERREUR (rouge) en bas, hors du cadran.
+     * Redémarre automatiquement après un court délai pour réessayer.
+     */
+    (function keypad(){
+      const TARGET = ['9','8','0'];
+      let buffer = [];
+      const grid = document.getElementById('grid');
+      const status = document.getElementById('status');
+      const d1 = document.getElementById('d1');
+      const d2 = document.getElementById('d2');
+      const d3 = document.getElementById('d3');
+      const pad = document.querySelector('.pad');
+
+      // Son court généré (WebAudio) pour éviter les fichiers externes
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AC();
+      function beep(hz=520, dur=0.07, gain=0.05){
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = hz;
+        g.gain.value = gain;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); setTimeout(()=>{o.stop();}, dur*1000);
+      }
+
+      function render(){
+        d1.textContent = buffer[0] ?? '_';
+        d2.textContent = buffer[1] ?? '_';
+        d3.textContent = buffer[2] ?? '_';
+      }
+      function showStatus(ok){
+        status.textContent = ok ? 'CORRECT' : 'ERREUR';
+        status.className = 'status show ' + (ok ? 'ok' : 'err');
+        if(!ok){ pad.classList.add('shake'); setTimeout(()=>pad.classList.remove('shake'), 380);}
+      }
+      function clearSoon(){
+        setTimeout(()=>{ buffer = []; render(); status.className = 'status'; }, 1200);
+      }
+
+      grid.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.key');
+        if(!btn) return;
+        const digit = btn.getAttribute('data-digit');
+        if(buffer.length >= 3) return; // attend reset
+        // Déverrouille audio sur premier geste utilisateur
+        try{ audioCtx.resume(); }catch(err){}
+        beep(520 + Math.random()*40, 0.06, 0.05);
+        buffer.push(digit);
+        render();
+        if(buffer.length === 3){
+          const ok = buffer.every((d,i)=> d === TARGET[i]);
+          showStatus(ok);
+          if(ok){ // petit jingle succès
+            setTimeout(()=>beep(740,0.08,0.06),120);
+            setTimeout(()=>beep(880,0.10,0.06),240);
+          }
+          clearSoon();
+        }
+      });
+
+      // Support clavier physique (desktop)
+      window.addEventListener('keydown', (e)=>{
+        if(e.key>='0' && e.key<='9'){
+          const el = [...grid.querySelectorAll('.key')].find(k=>k.dataset.digit===e.key);
+          el?.click();
+        }
+      }, {passive:true});
+
+      render();
+    })();
+  </script>
+</body>
+</html>
